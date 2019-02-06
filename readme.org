@@ -1,0 +1,61 @@
+#+TITLE: fifql - Stack-based Query Language for Clojure(script) Web APIs
+#+AUTHOR: Benjamin Zaporzan
+#+DATE: 2019-02-06
+#+EMAIL: benzaporzan@gmail.com
+#+LANGUAGE: en
+#+OPTIONS: H:2 num:t toc:t \n:nil ::t |:t ^:t f:t tex:t
+
+*fifql* is a query language consisting of [[https://github.com/benzap/fif][fif]], and an exposed web server
+handler for querying a web server. It is meant to be a replacement for
+[[https://graphql.org/][graphql]], while being more powerful and expressive.
+
+*fifql* leverages the *fif* stack-machine as a query language, which
+offers an easier medium of expressing data formatted in the EDN data
+format. *fifql* works awesome with clojure and clojurescript
+applications on both the server-side, and on the receiving client-side.
+
+* Example
+
+This example creates a new fifql server containing one custom word
+function which returns an integer value plus 2. It also defines a word
+variable 'SERVER-NAME which is a fabricated name of the server we're querying.
+
+#+BEGIN_SRC clojure
+
+  (require '[fifql.server :as server])
+
+  ;; Require the core of our query language for defining word functions.
+  (require '[fifql.core :refer [return defword defhandler setg]])
+
+  ;; Define a word function called 'add2 which takes a value off the
+  ;; stack and places a value back onto the stack.
+  (defword add2 [x]
+     (return (+ x 2)))
+
+
+  (setg SERVER-NAME "super awesome server")
+
+
+  (defn -main [& args]
+    (server/start {:port 6667}))
+
+#+END_SRC
+
+Querying the server via a ~curl~ command
+
+
+#+BEGIN_SRC sh
+
+# HTTP GET Examples
+
+$ curl http://localhost/fifql?query=2,add2
+(4)
+
+$ curl http://localhost/fifql?query=SERVER-NAME
+("super awesome server")
+
+
+# HTTP POST Examples
+
+...
+#+END_SRC
