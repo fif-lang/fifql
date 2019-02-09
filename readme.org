@@ -5,6 +5,8 @@
 #+LANGUAGE: en
 #+OPTIONS: H:2 num:t toc:t \n:nil ::t |:t ^:t f:t tex:t
 
+[[https://clojars.org/fifql][https://img.shields.io/clojars/v/fifql.svg]]
+
 *fifql* is a query language consisting of [[https://github.com/benzap/fif][fif]], and an exposed web server
 handler for querying a web server. It is meant to be a replacement for
 [[https://graphql.org/][graphql]], while being more powerful and expressive.
