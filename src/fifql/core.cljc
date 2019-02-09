@@ -45,6 +45,19 @@
    :group group))
 
 
+(defn get-var
+  "Get the value of the variable from the stack-machine `sm` defined by
+  the symbol `sym`. Returns nil if the variable does not exist."
+  [sm sym]
+  (let [value
+        (-> sm
+            (fif/ieval-fn [sym])
+            fif/get-stack
+            first)]
+    (when-not (= sym value)
+      value)))
+
+
 (defn create-stack-machine
   "Create a stack machine suitable for fifql."
   [& {:keys [step-max]

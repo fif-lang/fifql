@@ -5,7 +5,7 @@
    [fif.core :as fif]))
 
 
-(defn create-output-fn
+(defn- create-output-fn
   ""
   [*stdout *stderr]
   (fn [{:keys [tag value]}]
@@ -14,7 +14,7 @@
      :error (swap! *stderr conj value))))
 
 
-(defn parse-query-string
+(defn- parse-query-string
   [s]
   (-> s
       (str/split #"&")
@@ -25,12 +25,12 @@
       :query))
 
 
-(defn parse-content-body
+(defn- parse-content-body
   [request]
   (slurp (:body request)))
 
 
-(defn get-request-input-string
+(defn- get-request-input-string
   [request]
   (case (:request-method request)
     :get (parse-query-string (:query-string request))
@@ -47,7 +47,7 @@
     stack-machine))
 
 
-(defn determine-content-type
+(defn- determine-content-type
   [request]
   (let [accept (-> request :headers (get "accept" ""))]
     (if (str/includes? accept "application/edn")
@@ -56,32 +56,59 @@
 
 
 (defn create-ring-request-handler
-  [stack-machine]
+  "Create a ring request handler for use in an HTTP server.
+
+  # Keyword Arguments
+  
+  prepare-stack-machine - Can be either the fif stack-machine to use
+  for queries, or a function of the form (fn [req]) which receives the
+  request map, and expects a stack-machine to be returned.
+
+  post-response (optional) - Called after the stack-machine is
+  evaluated. This is an optional function that can perform further
+  modifications on the generated response. Function is of the
+  form (fn [sm request response]), and expects a response map.
+
+  # Notes
+
+  - prepare-stack-machine allows you to return difference stack
+  machine's with different capabilities based on the current
+  session. This can be useful for providing say a 'logged in' user
+  with more functionality.
+
+  - post-response can allow you to check the stack-machine for login
+  sequences, and change the session data within the response
+  appropriately."
+  [& {:keys [prepare-stack-machine post-response]
+      :or {post-response (fn [sm request response] response)}}]
   (fn
     ([request]
      (let [*stdout (atom [])
            *stderr (atom [])
            output-fn (create-output-fn *stdout *stderr)
            input-string (get-request-input-string request)
-           stack-machine (get-stack-machine request stack-machine)
-           evaled-sm (fif/prepl-eval stack-machine input-string output-fn)]
-       {:status 200
-        :headers {"Content-Type" (determine-content-type request)}
-        :body (pr-str {:input-string input-string
-                       :stack (fif/get-stack evaled-sm)
-                       :stdout @*stdout
-                       :stderr @*stderr})}))
+           stack-machine (get-stack-machine request prepare-stack-machine)
+           evaled-sm (fif/prepl-eval stack-machine input-string output-fn)
+           response {:status 200
+                     :headers {"Content-Type" (determine-content-type request)}
+                     :body (pr-str {:input-string input-string
+                                    :stack (fif/get-stack evaled-sm)
+                                    :stdout @*stdout
+                                    :stderr @*stderr})}]
+       (post-response evaled-sm request response)))
+       
 
     ([request respond raise]
      (let [*stdout (atom [])
            *stderr (atom [])
            output-fn (create-output-fn *stdout *stderr)
            input-string (get-request-input-string request)
-           stack-machine (get-stack-machine request stack-machine)
-           evaled-sm (fif/prepl-eval stack-machine input-string output-fn)]
-       (respond {:status 200
-                 :headers {"Content-Type" (determine-content-type request)}
-                 :body (pr-str {:input-string input-string
-                                :stack (fif/get-stack evaled-sm)
-                                :stdout @*stdout
-                                :stderr @*stderr})})))))
+           stack-machine (get-stack-machine request prepare-stack-machine)
+           evaled-sm (fif/prepl-eval stack-machine input-string output-fn)
+           response {:status 200
+                     :headers {"Content-Type" (determine-content-type request)}
+                     :body (pr-str {:input-string input-string
+                                    :stack (fif/get-stack evaled-sm)
+                                    :stdout @*stdout
+                                    :stderr @*stderr})}]
+       (respond (post-response evaled-sm request response))))))

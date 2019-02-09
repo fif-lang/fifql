@@ -16,6 +16,10 @@
        :doc "(n -- n) Add 2 to the value"
        :group :test)
 
+      (fifql/set-word 'fail (fifql/wrap-procedure 0 (fn [] (throw (ex-info "Failed" {}))))
+       :doc "Throw an error, stop the stack-machine."
+       :group :test)
+
       (fifql/set-var 'server-details {:port 8080 :server-name "test server"}
        :doc "The server details"
        :group :test)))
@@ -23,7 +27,10 @@
 
 (def fifql-handler
   (create-ring-request-handler
-   (fn [req] stack-machine)))
+   :prepare-stack-machine
+   (fn [request] stack-machine)
+   :post-response
+   (fn [sm request response] response)))
 
 
 (defroutes app
