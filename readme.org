@@ -169,7 +169,7 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
     {:total-count (example/user-count)
 
      ;; map over the user-listing selecting only the key-value pairs that we want
-     :items ((user-keys select-keys) user-listing map vec)
+     :items ((user-keys select-keys) ulisting map vec)
 
      :end-cursor (end-cursor str)
      :has-next-page? (end-cursor example/users-after?)} ?
