@@ -5,11 +5,13 @@
 #+LANGUAGE: en
 #+OPTIONS: H:2 num:t toc:t \n:nil ::t |:t ^:t f:t tex:t
 
+/fifql is still under active development, and is considered *alpha*/
+
 [[https://clojars.org/fifql][https://img.shields.io/clojars/v/fifql.svg]]
 
 *fifql* is a query language consisting of [[https://github.com/benzap/fif][fif]], and an exposed web server
 handler for querying a web server. It is meant to be a replacement for
-[[https://graphql.org/][graphql]], while being more powerful and expressive.
+[[https://graphql.org/][graphql]], while providing the full benefits of a sandboxed stack machine.
 
 *fifql* leverages the *fif* stack-machine as a query language, which
 offers an easier medium of expressing data formatted in the EDN data
@@ -20,7 +22,7 @@ applications on both the server-side, and on the receiving client-side.
 
 This example creates a new fifql server containing one custom word
 function which returns an integer value plus 2. It also defines a word
-variable 'server-details which is a fabricated name of the server we're querying.
+variable 'server-details which contains the server name and port.
 
 #+BEGIN_SRC clojure
 
@@ -81,8 +83,7 @@ variable 'server-details which is a fabricated name of the server we're querying
 
 #+END_SRC
 
-Querying the server via a ~curl~ command
-
+Querying the server via a ~curl~ command:
 
 #+BEGIN_SRC sh
 
@@ -93,6 +94,9 @@ $ curl http://localhost/fifql?query=2,add2
 
 $ curl http://localhost/fifql?query=server-details
 {:input-string "server-details", :stack ({:server-port 8080, :server-name "A fifql Example Server"}), :stdout [], :stderr []}
+
+$ curl http://localhost/fifql?query=server-details,:server-port,get
+{:input-string "server-details,:server-port,get", :stack (8080), :stdout [], :stderr []}
 
 
 # HTTP POST Examples
@@ -106,3 +110,139 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
 
 ...
 #+END_SRC
+
+* Requirements
+
+  *fif-ql* requires clojure 1.9+
+
+* Installation
+
+  For the latest version, please visit [[clojars.org/fifql][clojars.org]]
+
+* Introduction
+  
+  *fifql* was inspired by GraphQL after I found that there was so
+  much more possibility to be made when performing queries. Instead of
+  forcing the user to tie into a particular schema, why not let them
+  come up with thier own schemas from fundamental data structures?
+
+  It's unclear what a user wants from your API, so this gives them
+  complete freedom on how the data should be retrieved from the
+  system.
+
+  Additionally, the fif stack language is already sandboxed and
+  includes additional security to prevent malicious intent.
+
+  As an example, assume that I want to retrieve the first 10 users
+  from a user-listing
+
+  In GraphQL, this query would look like this:
+
+  #+BEGIN_SRC clojure
+
+  {userListing(first: 10) {
+    totalCount
+    items {
+      name
+      id
+    }
+    endCursor
+    hasNextPage
+  }}
+
+  #+END_SRC
+
+  In fifql, this query is constructed from a few word functions.
+  
+  #+BEGIN_SRC clojure
+
+    ;; What key value pairs do we want from each user in the user-listing?
+    def user-keys [:name :id]
+
+    ;; Grab the first 10 values in the user listing, and place in the word variable 'ulisting
+    {:first 10} example/user-listing *ulisting <> setg
+
+    ;; Construct our end cursor, place in the word variable 'end-cursor
+    ulisting last :id get *end-cursor <> setg
+
+    ;; Construct our data to be returned on the stack
+    {:total-count (example/user-count)
+
+     ;; map over the user-listing selecting only the key-value pairs that we want
+     :items ((user-keys select-keys) user-listing map vec)
+
+     :end-cursor (end-cursor str)
+     :has-next-page? (end-cursor example/users-after?)} ?
+
+    ;;
+    ;; Notes:
+    ;; '?' is used to 'realize' the data, this is a fundamental fif concept.
+
+  #+END_SRC
+
+  The result of the first element of the stack:
+
+  #+BEGIN_SRC clojure
+
+  {:total-count 43
+   :items [{:name "Ben" :id 1} {:name "John" :id 2} ...]
+   :end-cursor "9"
+   :has-next-page? true}
+
+  #+END_SRC
+
+  An important note to make about the fifql version of the query. The
+  user has chosen how to represent the data for themselves, leaving
+  them with full control. This takes unneeded burden off of the API
+  development.
+
+  In the event that such queries become commonplace, the API can be
+  extended to include more personalized and concrete functions for the user ie.
+  
+  #+BEGIN_SRC
+
+  {:first 10} example/user-page
+
+  ;; generates the same query result as the query above.
+  #+END_SRC
+
+  In the end, this makes fifql more flexible and a much more powerful
+  alternative to GraphQL.
+
+** Spooky Scary Stack-machines
+
+   If you're not familiar with stack programming, a lot of what has
+   been presented here might look scary and
+   unconventional. Stack-programming made a prime appearance when the
+   programming language *Forth* was developed, and it has remained an
+   often overlooked alternative in modern software development outside
+   of embedded systems.
+
+   stack-programming is great as a query language due to how it
+   presents a lot fewer surprises. Values are simply pushed and popped
+   off of a stack, with a few extra steps thrown in for different
+   modes that that stack machine is currently in. The resulting stack
+   is then returned to the user who performed the query. It couldn't
+   get much simpler than that.
+
+   That being said there are several more advantages
+
+*** Interop is easy
+
+    Clojure functions are easily adapted to work in a stack
+    machine. No need to write a schema and write a bunch of resolvers,
+    just write clojure functions and wrap them into word functions.
+
+*** Testing is easy
+    
+    Stack-machines developed can be easily tested, with a ton of
+    examples available in the [[github.com/benzap/fif][fif repository]] source code.
+
+*** More advanced language features are rewarding, but not required
+
+    You can take full advantage of fifql without having to learn the
+    ins and outs of the entire *fif* language. In the event that you
+    would like to learn more, you can check out the [[http://benzaporzan.me/fif-playground/][fif playground]] and
+    get more accustomed to what is possible.
+
+
