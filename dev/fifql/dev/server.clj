@@ -11,6 +11,9 @@
    [compojure.core :refer [GET POST defroutes]]
    [compojure.route :as route]
    
+   ;; Ring Middleware
+   [ring.middleware.file :refer [wrap-file]]
+
    ;; Fifql Library
    [fifql.server :refer [create-ring-request-handler]]
    [fifql.core :as fifql]))
@@ -41,16 +44,20 @@
 
 ;; Create our routes. The fifql ring handler supports both GET and POST requests
 (defroutes app
+  (GET "/" [] (slurp "resources/public/index.html"))
   (GET "/fifql" req fifql-handler)
   (POST "/fifql" req fifql-handler)
   (route/not-found "<h1>Page not Found</h1>"))
 
+(def wapp
+  (-> app
+      (wrap-file "resources/public")))
 
 ;; Start the web server. Note that any server that supports ring
 ;; request handlers are supported.
 (defn start
   []
-  (httpkit/run-server #'app {:port server-port}))
+  (httpkit/run-server #'wapp {:port server-port}))
 
 
 ;; Manage our http server using Mount (optional)

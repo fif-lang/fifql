@@ -106,7 +106,8 @@
            stack-machine (get-stack-machine request prepare-stack-machine)
            evaled-sm (fif/prepl-eval stack-machine input-string output-fn)
            response {:status 200
-                     :headers {"Content-Type" (determine-content-type request)}
+                     :headers {"Content-Type" (determine-content-type request)
+                               "Access-Control-Allow-Origin" "*"}
                      :body (pr-str {:input-string input-string
                                     :stack (fif/get-stack evaled-sm)
                                     :stdout @*stdout
