@@ -108,7 +108,39 @@ $ curl -d "2 2 +" -X POST http://localhost:8080/fifql -H "Accept: application/ed
 $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Accept: application/edn"
 {:input-string "\"Hello World!\" println", :stack (), :stdout ["Hello World!\r\n"], :stderr []}
 
-...
+#+END_SRC
+
+We can also query using clojure and clojurescript. An example within
+clojure:
+
+#+BEGIN_SRC clojure
+
+(require '[fifql.client :refer [query sform]])
+
+(def some-value 10)
+
+(query "http://localhost:8080/fifql"
+       (sform %= some-value 2 +))
+;; {:input-string "10 2 +", :stack (12), :stdout [], :stderr []}
+
+#+END_SRC
+
+Note that we can inline clojure evaluations within the `sform`
+function by escaping with a preceding ~%=~ symbol.
+
+Similarly, there is a clojurescript equivalent query that involves a
+callback:
+
+#+BEGIN_SRC clojure
+
+(ns fifql.cljs.example
+ (:require [fifql.client :refer [query sform] :include-macros true]))
+
+(query "http://localhost:8080/fifql"
+       (sform 2 2 +)
+       (fn [result] (.log js/console result)))
+;; {:input-string "2 2 +", :stack (4), :stdout [], :stderr []}
+
 #+END_SRC
 
 * Requirements
@@ -121,14 +153,14 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
 
 * Introduction
   
-  *fifql* was inspired by GraphQL after I found that there was so
-  much more possibility to be made when performing queries. Instead of
-  forcing the user to tie into a particular schema, why not let them
-  come up with thier own schemas from fundamental data structures?
+  *fifql* is inspired by GraphQL and offers more flexibility when
+  performing queries. Instead of forcing the user to tie into a
+  particular schema, why not let them come up with thier own schemas
+  from fundamental data structures?
 
-  It's unclear what a user wants from your API, so this gives them
-  complete freedom on how the data should be retrieved from the
-  system.
+  Sometimes it can be unclear what a user wants from an API, so this
+  gives them complete freedom on how the data should be retrieved from
+  the system.
 
   Additionally, the fif stack language is already sandboxed and
   includes additional security to prevent malicious intent.
@@ -152,7 +184,9 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
 
   #+END_SRC
 
-  In fifql, this query is constructed from a few word functions.
+  In fifql, this query is constructed from a few word functions,
+  namely ~example/user-listing~, ~example/user-count~, and
+  ~example/users-after?~
   
   #+BEGIN_SRC clojure
 
@@ -197,7 +231,7 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
   development.
 
   In the event that such queries become commonplace, the API can be
-  extended to include more personalized and concrete functions for the user ie.
+  extended to include more personalized and concrete functions for the client ie.
   
   #+BEGIN_SRC
 
@@ -206,7 +240,7 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
   ;; generates the same query result as the query above.
   #+END_SRC
 
-  In the end, this makes fifql more flexible and a much more powerful
+  As a result, this makes fifql more flexible and a much more powerful
   alternative to GraphQL.
 
 ** Spooky Scary Stack-machines
@@ -218,20 +252,24 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
    often overlooked alternative in modern software development outside
    of embedded systems.
 
-   stack-programming is great as a query language due to how it
+   Stack-programming is great as a query language due to how it
    presents a lot fewer surprises. Values are simply pushed and popped
-   off of a stack, with a few extra steps thrown in for different
-   modes that that stack machine is currently in. The resulting stack
-   is then returned to the user who performed the query. It couldn't
-   get much simpler than that.
+   off of a stack. The resulting stack is then returned to the user
+   who performed the query. It couldn't get much simpler than that.
 
    That being said there are several more advantages
 
 *** Interop is easy
 
-    Clojure functions are easily adapted to work in a stack
+    Clojure functions are easily adapted to work in the fif stack
     machine. No need to write a schema and write a bunch of resolvers,
     just write clojure functions and wrap them into word functions.
+
+*** Presented in the EDN data format
+
+    Since everything is done in the EDN data format, there is no need
+    for complicated keyword to string conversions when working within
+    clojure and clojurescript.
 
 *** Testing is easy
     
@@ -245,4 +283,87 @@ $ curl -d "\"Hello World!\" println" -X POST http://localhost:8080/fifql -H "Acc
     would like to learn more, you can check out the [[http://benzaporzan.me/fif-playground/][fif playground]] and
     get more accustomed to what is possible.
 
+*** Mutations are just more word functions
 
+    GraphQL makes a distinction with Queries and Mutations. This
+    distinction does not exist in fifql, since it's just another word
+    function.
+
+* Getting the full scoop on ring requests in fifql
+  
+  The fifql ring request handler has been designed to allow you to
+  dictate which stack-machine a request is privileged to use.
+
+  As an example, I will write a ~:prepare-stack-machine~ function that
+  will only allow a user to use a set of word functions that can
+  mutate the server.
+
+#+BEGIN_SRC clojure
+
+  (def guest-stack-machine
+       (-> (fifql/create-stack-machine)
+           (import-guest-libs)))
+
+
+  (def admin-stack-machine
+       (-> guest-stack-machine
+           (import-admin-libs)))
+
+
+  (def fifql-handler
+    (create-ring-request-handler
+     :prepare-stack-machine
+     (fn [req]
+         (if (-> req :session :admin?)
+             admin-stack-machine
+             guest-stack-machine))))
+
+#+END_SRC
+
+~create-ring-request-handler~ can also optionally include the
+~:post-response~ function which can manipulate the response while
+having full access to the evaluated stack machine.
+
+As an example, i'll check the stack-machine for a username and
+password, and manipulate the user's session if they provide the
+correct credentials.
+
+#+BEGIN_SRC clojure
+
+  (require '[fifql.core :refer [get-var]])
+
+  ;; ..building on the last example
+
+  (def fifql-handler
+       (create-ring-request-handler
+        ;;..
+        :post-response
+        (fn [sm request response]
+           (let [username (get-var sm 'username)
+                 password (get-var sm 'password)]
+
+              ;; Set the session to an admin session if the
+              ;; stack-machine has the correct `username and `password
+              ;; set.
+              (if (and (= username "admin") (= password "123"))
+                (assoc-in response [:session :admin?] true)
+                response)))))
+
+#+END_SRC
+
+An example client request
+
+#+BEGIN_SRC clojure
+
+(require '[fifql.client :refer [sform query]])
+
+
+(defn authenticate-script [username password]
+  (sform 
+   def username %= username
+   def password %= password))
+
+
+(query "http://localhost:8080/fifql" (authenticate-script "admin" "123"))
+
+#+END_SRC
