@@ -367,3 +367,80 @@ An example client request
 (query "http://localhost:8080/fifql" (authenticate-script "admin" "123"))
 
 #+END_SRC
+* NodeJS express request handler
+  fifql also has support for ExpressJS for use with clojurescript in
+  NodeJS. Here is an example of a ExpressJS server.
+
+  #+BEGIN_SRC clojure
+
+(ns fifql.dev.server
+  (:require
+   [fif.core :as fif]
+   [fifql.core :as fifql]
+   [fifql.server :refer [create-express-request-handler
+                         add-request-middleware!]]))
+
+
+(def express (js/require "express"))
+(def app (express))
+
+(def server-name "A fifql Example Server")
+(def server-port 8081)
+(def server-details
+  {:server-port server-port :server-name server-name})
+
+
+;; Create our stack machine, and define some word functions
+(def stack-machine
+  (-> (fifql/create-stack-machine)
+
+      (fifql/set-word 'add2 (fifql/wrap-function 1 (fn [x] (+ 2 x)))
+       :doc "(n -- n) Add 2 to the value"
+       :group :fifql/example)
+
+      (fifql/set-var 'server-details server-details
+       :doc "The server details"
+       :group :fifql/example)))
+
+
+;; Generate our fifql handler
+(def fifql-handler
+  (create-express-request-handler
+   :prepare-stack-machine stack-machine))
+
+;; Create some routes. Note: we also add our own middleware
+(doto app
+  (add-request-middleware!)
+  (.get "/fifql" fifql-handler)
+  (.post "/fifql" fifql-handler))
+
+
+(defn -main [& args]
+  (.listen app server-port
+           #(.log js/console (str "Server Started on port " server-port))))
+
+
+(set! *main-cli-fn* -main)
+
+
+  #+END_SRC
+
+Starting this server and running the the same examples from the
+introduction reveals the same output:
+
+#+BEGIN_SRC sh
+
+$ curl -d "2 add2" http://localhost:8081/fifql -H "Content-Type: application/fif"
+{:input-string "2 add2", :stack (4), :stdout [], :stderr []}
+
+#+END_SRC
+
+** Differences between Ring and ExpressJS Request Handlers
+
+   - The returned ~:stderr~ key for responses is unused in NodeJS,
+     since clojurescript does not map to it. The key remains in the
+     returned response for consistency.
+
+   - When overloading the ~:post-response~ function handler in the
+     ExpressJS request handler does not require you to return the
+     response object due to the nature of ExpressJS's design.
