@@ -14,10 +14,14 @@
                  [fif "1.2.0"]]
   :repl-options {:init-ns fifql.core}
 
+  :npm {:dependencies [[body-parser "1.18.3"]]
+        :devDependencies [[express "4.16.4"]]}
+
   :profiles
   {:dev
    {:main fifql.commandline
-    :plugins [[lein-cljsbuild "1.1.7"]]
+    :plugins [[lein-cljsbuild "1.1.7"]
+              [lein-npm "0.6.2"]]
     :source-paths ["src" "dev" "test"]
     :dependencies [[mount "0.1.16"]
                    [ring/ring-mock "0.3.2"]
@@ -38,6 +42,6 @@
                        {:source-paths ["src" "dev" "test"]
                         :compiler {:output-dir "target/js/compiled/out"
                                    :output-to "target/js/compiled/fifql-server.js"
-                                   :optimizations :simple
-                                   :main fif.dev.server
+                                   :optimizations :none
+                                   :main fifql.dev.server
                                    :target :nodejs}}}})

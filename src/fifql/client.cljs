@@ -21,8 +21,8 @@
   "
   [url sform callback]
   (go (let [options {:body sform
-                     :headers {"Accept" "application/edn"
-                               "Access-Control-Allow-Origin" "*"}}
+                     :headers {"Content-Type" "application/fif"
+                               "Accept" "application/edn"}}
             response (<! (http/post url options))]
         ;; cljs-http automatically converts into EDN
         (when-let [response-body (:body response)]

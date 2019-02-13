@@ -17,5 +17,5 @@
   (stop)(start))
 
 
-#_(query {:url "http://localhost:8080/fifql"
-          :sform (sform 2 2 +)})
+#_(query "http://localhost:8081/fifql"
+         (sform 2 2 +))

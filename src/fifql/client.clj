@@ -48,6 +48,12 @@
      (subs sform# 1 (dec (count sform#)))))
 
 
+(defn slurp-maybe [s]
+  (if (string? s)
+    s
+    (slurp s)))
+
+
 (defn query
   "Performs a POST request on the given `url` with the given fif
   `form`. Returns a map consisting of the `:stack`, `:input-string`, a
@@ -63,10 +69,8 @@
   [url sform]
   (let [options
         {:body sform
-         :headers {"Accept" "application/edn"}}
+         :headers {"Content-Type" "application/fif"
+                   "Accept" "application/edn"}}
         result @(http/post url options)]
-    (when-let [sresult (-> result :body slurp)]
+    (when-let [sresult (-> result :body slurp-maybe)]
       (edn/read-string sresult))))
-    
-  
-  
