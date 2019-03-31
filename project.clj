@@ -1,4 +1,4 @@
-(defproject fifql "1.3.0"
+(defproject fif-lang/fifql "1.3.0-SNAPSHOT"
   :description "Stack-based Query Language for the web"
   :url "http://github.com/fif-lang/fifql"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
