@@ -1,4 +1,4 @@
-(defproject fif-lang/fifql "1.3.2"
+(defproject fif-lang/fifql "1.4.0"
   :description "Stack-based Query Language for the web"
   :url "http://github.com/fif-lang/fifql"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -11,7 +11,7 @@
                  [org.clojure/tools.reader "1.3.2"]
                  [http-kit "2.3.0"]
                  [cljs-http "0.1.46"]
-                 [fif-lang/fif "1.3.2"]]
+                 [fif-lang/fif "1.4.0"]]
   :repl-options {:init-ns fifql.core}
 
   :npm {:dependencies [[body-parser "1.18.3"]]
